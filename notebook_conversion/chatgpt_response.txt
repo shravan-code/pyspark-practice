@@ -1,0 +1,359 @@
+Final stretch. This part focuses on **production readiness + performance + internals** — exactly what **senior interviews and real projects** test.
+
+---
+
+# ✅ PySpark Top 100 Methods — **PART 4 (76–100)**
+
+**Category: Writing Data, File Formats, Partitioning, Performance, Internals, Streaming**
+
+---
+
+## 7️⃣6️⃣ `df.write`
+
+### **What**
+
+Entry point for writing data.
+
+### **Why**
+
+Persists DataFrame to storage.
+
+```python
+df.write.parquet("output/")
+```
+
+---
+
+## 7️⃣7️⃣ `df.write.format()`
+
+### **What**
+
+Explicit output format.
+
+### **Why**
+
+Production pipelines require explicit formats.
+
+```python
+df.write.format("parquet").save("s3://bucket/path")
+```
+
+---
+
+## 7️⃣8️⃣ `mode()`
+
+### **What**
+
+Write mode.
+
+| Mode      | Meaning |
+| --------- | ------- |
+| overwrite | Replace |
+| append    | Add     |
+| ignore    | Skip    |
+| error     | Fail    |
+
+```python
+df.write.mode("overwrite").parquet("out/")
+```
+
+---
+
+## 7️⃣9️⃣ `partitionBy()`
+
+### **What**
+
+Creates directory-based partitions.
+
+### **Why**
+
+Enables **partition pruning**.
+
+```python
+df.write.partitionBy("year", "month").parquet("out/")
+```
+
+### **Interview**
+
+> Too many partitions = small file problem
+
+---
+
+## 8️⃣0️⃣ `bucketBy()`
+
+### **What**
+
+Bucketing data.
+
+### **Why**
+
+Optimizes joins & aggregations.
+
+```python
+df.write.bucketBy(10, "user_id").sortBy("user_id").saveAsTable("users")
+```
+
+---
+
+## 8️⃣1️⃣ `saveAsTable()`
+
+### **What**
+
+Writes to Hive metastore.
+
+### **Use Case**
+
+Spark SQL + BI tools.
+
+---
+
+## 8️⃣2️⃣ `insertInto()`
+
+### **What**
+
+Inserts into existing table.
+
+### **Interview**
+
+> Schema must match exactly
+
+---
+
+## 8️⃣3️⃣ `parquet()`
+
+### **What**
+
+Columnar storage.
+
+### **Why**
+
+Best default format for Spark.
+
+### **Interview**
+
+> Supports predicate pushdown + compression
+
+---
+
+## 8️⃣4️⃣ `orc()`
+
+### **What**
+
+Optimized for Hive.
+
+---
+
+## 8️⃣5️⃣ `json()`
+
+### **What**
+
+Semi-structured output.
+
+### **Downside**
+
+❌ No schema enforcement
+
+---
+
+## 8️⃣6️⃣ `csv()`
+
+### **What**
+
+Text-based format.
+
+### **Interview**
+
+> Avoid for large-scale analytics
+
+---
+
+## 8️⃣7️⃣ `option("compression")`
+
+### **What**
+
+Compression type.
+
+```python
+df.write.option("compression", "snappy").parquet("out/")
+```
+
+---
+
+## 8️⃣8️⃣ `checkpoint()`
+
+### **What**
+
+Truncates lineage.
+
+### **Why**
+
+Prevents long DAG failures.
+
+---
+
+## 8️⃣9️⃣ `unpersist()`
+
+### **What**
+
+Removes cached data.
+
+```python
+df.unpersist()
+```
+
+---
+
+## 9️⃣0️⃣ `spark.sql()`
+
+### **What**
+
+Run SQL queries.
+
+### **Why**
+
+Easy migration from RDBMS.
+
+```python
+spark.sql("SELECT * FROM table")
+```
+
+---
+
+## 9️⃣1️⃣ `createOrReplaceTempView()`
+
+### **What**
+
+Temporary SQL view.
+
+```python
+df.createOrReplaceTempView("emp")
+```
+
+---
+
+## 9️⃣2️⃣ `explain("formatted")`
+
+### **What**
+
+Detailed execution plan.
+
+### **Interview**
+
+> Understand **Scan → Filter → Exchange → Aggregate**
+
+---
+
+## 9️⃣3️⃣ `spark.conf.set()`
+
+### **What**
+
+Set Spark configs.
+
+```python
+spark.conf.set("spark.sql.shuffle.partitions", 200)
+```
+
+---
+
+## 9️⃣4️⃣ `spark.sql.shuffle.partitions`
+
+### **What**
+
+Default shuffle partitions (200).
+
+### **Interview**
+
+> Tune this aggressively
+
+---
+
+## 9️⃣5️⃣ `spark.sql.adaptive.enabled`
+
+### **What**
+
+Adaptive Query Execution (AQE).
+
+### **Why**
+
+Dynamic optimization.
+
+---
+
+## 9️⃣6️⃣ `spark.readStream`
+
+### **What**
+
+Streaming source.
+
+```python
+df = spark.readStream.format("kafka").load()
+```
+
+---
+
+## 9️⃣7️⃣ `writeStream`
+
+### **What**
+
+Streaming sink.
+
+```python
+df.writeStream.format("console").start()
+```
+
+---
+
+## 9️⃣8️⃣ `trigger()`
+
+### **What**
+
+Controls micro-batch timing.
+
+---
+
+## 9️⃣9️⃣ `foreachBatch()`
+
+### **What**
+
+Custom batch processing.
+
+### **Use Case**
+
+Streaming → DB writes.
+
+---
+
+## 🔟0️⃣ `awaitTermination()`
+
+### **What**
+
+Keeps streaming alive.
+
+```python
+query.awaitTermination()
+```
+
+---
+
+# 🎯 FULL INTERVIEW READINESS ACHIEVED
+
+You now have:
+
+* **Top 100 PySpark methods**
+* **What / Why / How / Scenario**
+* **Performance + internals**
+* **Production & streaming**
+
+---
+
+## 🚀 Next-Level Add-Ons (Highly Recommended)
+
+I can now help you with:
+
+1. **PySpark vs SQL mapping (method → SQL)**
+2. **50 real interview scenarios with answers**
+3. **Spark DAG & Catalyst optimizer deep dive**
+4. **Hands-on mini projects per category**
+5. **PySpark performance tuning checklist**
+
+Just tell me **what you want next**.
