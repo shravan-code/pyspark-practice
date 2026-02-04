@@ -1,30 +1,15 @@
-**Apache Spark** is a distributed, in-memory data processing engine that breaks an application 
-into **jobs**, **stages**, and **tasks**, executes those tasks in parallel across a cluster on data partitions, 
-and returns the final result to the user through the **Driver**.
+Spark Architecture:
 
-# Driver (Brain of Spark)
+Initially, Python code uses the PySpark API to communicate with the JVM Driver through Py4J. The SparkContext and SparkSession are created in the JVM, while Python holds proxy objects to interact with them.
 
-The Spark Driver orchestrates execution by creating the SparkContext, building DAGs,
-scheduling jobs and tasks, and coordinating with the cluster manager to run tasks on executors.
+In the first phase, the Driver creates an unresolved logical plan. The Catalyst Analyzer resolves it, the Catalyst Optimizer optimizes it, and the Physical Planner generates a physical execution plan. This physical plan is translated into RDD-based execution, forming RDD lineage, from which the Driver constructs a DAG.
 
-In Spark, the Driver creates the logical plan using the Catalyst Analyzer, 
-optimizes it using the Catalyst Optimizer, and generates the physical execution plan, 
-all within the JVM Driver before scheduling execution.
+In the second phase, actions trigger the creation of jobs. The DAG Scheduler schedules these jobs by splitting them into stages at shuffle boundaries. Each stage is divided into tasks, where each task processes a data partition.
 
-* The Driver creates the SparkContext and SparkSession in the JVM.
-* Python code interacts with these JVM objects through Py4J using Python proxy objects.
-* The Driver builds an unresolved logical plan, which is resolved by the **Catalyst Analyzer**, 
-optimized by the **Catalyst Optimizer**, and converted into a physical plan by the **Physical Planner**.
-* Using the physical plan, the Driver constructs a **DAG** representing the computation.
-* The Driver owns the DAG Scheduler, which schedules jobs triggered by actions using the DAG.
-* Each job is divided into stages at shuffle boundaries.
-* Stages are broken into tasks, which are scheduled by the Task Scheduler.
-* The Driver requests executors from the Cluster Manager.
-* The number of jobs depends on actions, while the number of tasks depends on data partitions.
-* Worker nodes are physical or virtual machines that host executors.
-* The Cluster Manager manages resources and launches executors on worker nodes.
-* Executors run tasks in parallel on partitions and perform the actual computation.
-* Results are sent back to the Driver.
+In the third phase, the Driver requests executors from the Cluster Manager. The Cluster Manager allocates executors based on available resources. The Task Scheduler assigns tasks to executors, which execute them in parallel. Partial results are aggregated and returned to the Driver.
 
+The Driver manages the Spark application, while the Cluster Manager manages the cluster infrastructure. A Spark cluster consists of multiple physical machines called worker nodes. Worker nodes host executors, and each executor has its own cores, memory, and storage.
+
+Executor count can be configured statically or dynamically. If a worker or executor fails, the cluster manager detects the failure and the Driver re-executes the failed tasks on available executors using lineage-based fault tolerance.
 
 ![img.png](images/pyspark.webp)
