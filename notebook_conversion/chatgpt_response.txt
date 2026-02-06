@@ -1,401 +1,182 @@
-Below is a **clear, interview-ready explanation of all 30 Apache Spark concepts**, ordered logically from **architecture → planning → execution → memory**. I’ll keep it **conceptual + technical**, exactly how interviewers expect.
+## Window Functions in PySpark
 
-![Image](https://spark.apache.org/docs/latest/img/cluster-overview.png)
-
-![Image](https://miro.medium.com/0%2A7325wPK9E8db2_DB)
-
-![Image](https://i.sstatic.net/1y2zm.png)
-
-![Image](https://docs.aws.amazon.com/images/prescriptive-guidance/latest/tuning-aws-glue-for-apache-spark/images/architecture-driver-cluster-worker.png)
+Apache Spark window functions let you perform **analytics across related rows** *without collapsing rows* (unlike `groupBy`). They’re essential for rankings, running totals, moving averages, and session-style analysis.
 
 ---
 
-## 1️⃣ DAG (Directed Acyclic Graph)
+### What a Window Function Does
 
-A **DAG** is Spark’s internal execution graph.
+A window function computes a value for **each row** based on:
 
-* **Directed** → data flows in one direction
-* **Acyclic** → no loops
-* Nodes = transformations
-* Edges = data dependencies
+* **Partition** → how rows are grouped
+* **Order** → how rows are sorted within each group
+* **Frame** → which rows around the current row are considered
 
-Spark builds a DAG from transformations **before execution** to optimize computation.
+![Image](https://miro.medium.com/1%2A74UtrCWGqZZXE4gS4m6P8A.gif)
 
----
-
-## 2️⃣ Cluster
-
-A **cluster** is a group of machines (nodes) working together.
-
-* One **driver node**
-* Multiple **worker nodes**
-* Used to distribute data and computation
+![Image](https://knockdata.github.io/images/spark-window-function-basic-window.png)
 
 ---
 
-## 3️⃣ Cluster Manager / Resource Manager
-
-The **Cluster Manager** allocates resources (CPU, memory).
-Examples:
-
-* Standalone
-* YARN
-* Kubernetes
-* Mesos
-
-It **does NOT run tasks**, only assigns resources.
-
----
-
-## 4️⃣ Application Master (AM)
-
-(Primarily in YARN mode)
-
-* Manages a **single Spark application**
-* Negotiates resources with YARN
-* Monitors executor lifecycle
-
-👉 Exists **per application**
-
----
-
-## 5️⃣ Application Driver
-
-The **driver** is the brain of a Spark application.
-Responsibilities:
-
-* Converts code → logical plan → physical plan
-* Creates DAGs, jobs, stages, tasks
-* Communicates with cluster manager
-* Collects results
-
----
-
-## 6️⃣ PySpark Driver
-
-Same as Spark driver, but:
-
-* Written in **Python**
-* Talks to JVM driver via **Py4J**
-* Python code → JVM Spark execution
-
----
-
-## 7️⃣ Executors
-
-Executors are **worker JVM processes**.
-They:
-
-* Execute tasks
-* Store data (cache)
-* Perform shuffles
-
-👉 One executor = multiple task slots
-
----
-
-## 8️⃣ Client Mode
-
-* Driver runs on **client machine**
-* Executors run on cluster
-* Client must stay alive
-
-📌 Good for development, **bad for production**
-
----
-
-## 9️⃣ Cluster Mode
-
-* Driver runs **inside the cluster**
-* More fault-tolerant
-* Preferred for production
-
----
-
-## 🔟 Narrow Transformations
-
-Transformations where:
-
-* Each output partition depends on **one input partition**
-* No shuffle required
-
-Examples:
-
-* `map`
-* `filter`
-* `select`
-
-🔥 Fast & efficient
-
----
-
-## 1️⃣1️⃣ Lazy Operation
-
-Spark transformations are **lazy**.
-
-* Nothing executes until an **action**
-* Allows Spark to optimize execution
-
-Example:
+## 1) Define a Window Specification
 
 ```python
-df.filter(...).select(...)
+from pyspark.sql.window import Window
+
+window_spec = (
+    Window
+    .partitionBy("department")
+    .orderBy("salary")
+)
 ```
 
-No execution yet.
+Optionally add a **frame**:
 
----
-
-## 1️⃣2️⃣ Wide Transformations
-
-Transformations where:
-
-* Output depends on **multiple input partitions**
-* Requires **shuffle**
-
-Examples:
-
-* `groupBy`
-* `join`
-* `distinct`
-
-⚠️ Expensive
-
----
-
-## 1️⃣3️⃣ Actions
-
-Actions **trigger execution**.
-Examples:
-
-* `count`
-* `collect`
-* `save`
-* `show`
-
-Each action → **new job**
-
----
-
-## 1️⃣4️⃣ Shuffle
-
-Shuffle is:
-
-* Redistributing data across executors
-* Disk + network intensive
-* Happens during wide transformations
-
-Major performance bottleneck.
-
----
-
-## 1️⃣5️⃣ Unresolved Logical Plan
-
-Initial plan created from code.
-
-* Column names not yet validated
-* No schema binding
-
-Example:
-
-```sql
-SELECT name FROM table
-```
-
-(Table may not exist yet)
-
----
-
-## 1️⃣6️⃣ Logical Plan
-
-Resolved version of logical plan.
-
-* Columns, tables verified
-* Schema attached
-* Still **not executable**
-
----
-
-## 1️⃣7️⃣ Filter Pushdown
-
-Optimization where:
-
-* Filters are applied **at data source**
-* Less data read into Spark
-
-Example:
-
-```sql
-WHERE date = '2025-01-01'
+```python
+window_spec = (
+    Window
+    .partitionBy("department")
+    .orderBy("date")
+    .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+)
 ```
 
 ---
 
-## 1️⃣8️⃣ Projection Pushdown
+## 2) Common Window Functions
 
-Only required columns are read.
+### Ranking Functions
 
-* Avoids reading unnecessary columns
-* Improves IO performance
+```python
+from pyspark.sql.functions import row_number, rank, dense_rank
 
----
+df.withColumn("row_num", row_number().over(window_spec))
+df.withColumn("rank", rank().over(window_spec))
+df.withColumn("dense_rank", dense_rank().over(window_spec))
+```
 
-## 1️⃣9️⃣ Physical Plan
+**Differences**
 
-Actual execution plan.
+* `row_number()` → unique sequence (no ties)
+* `rank()` → gaps after ties
+* `dense_rank()` → no gaps
 
-* Specifies joins, scans, shuffles
-* Uses Spark operators
-* Executed by executors
+![Image](https://miro.medium.com/1%2AtuGFvhwk5rUtoQWcX4A6ng.gif)
 
----
-
-## 2️⃣0️⃣ Catalyst Optimizer
-
-Spark SQL’s optimization engine.
-Performs:
-
-* Predicate pushdown
-* Constant folding
-* Join reordering
-* Column pruning
-
-🔥 Key reason Spark SQL is fast
+![Image](https://media.licdn.com/dms/image/v2/D4D12AQFRS0AU_T_NQQ/article-cover_image-shrink_720_1280/article-cover_image-shrink_720_1280/0/1654768699532?e=2147483647\&t=ONuIV9v8k99yhD5U52ocS8i3WOsKk_p_xlfjmGVVXEg\&v=beta)
 
 ---
 
-## 2️⃣1️⃣ Job
+### Aggregate Functions (Windowed)
 
-A **job** is created for every action.
+```python
+from pyspark.sql.functions import sum, avg, max
 
-* One action = one job
-* A job = multiple stages
+df.withColumn("dept_avg_salary", avg("salary").over(window_spec))
+df.withColumn("running_total", sum("sales").over(window_spec))
+```
 
----
-
-## 2️⃣2️⃣ Stage
-
-A stage is:
-
-* A set of tasks with **no shuffle between them**
-* Divided by shuffle boundaries
-
-Types:
-
-* ShuffleMapStage
-* ResultStage
+> Same aggregates as `groupBy`, but **row-level output is preserved**.
 
 ---
 
-## 2️⃣3️⃣ Task
+### Analytical / Value Functions
 
-Smallest unit of execution.
+```python
+from pyspark.sql.functions import lag, lead, first, last
 
-* One task per partition
-* Executed on executors
+df.withColumn("prev_salary", lag("salary", 1).over(window_spec))
+df.withColumn("next_salary", lead("salary", 1).over(window_spec))
+df.withColumn("first_sal", first("salary").over(window_spec))
+df.withColumn("last_sal", last("salary").over(window_spec))
+```
 
-👉 100 partitions = 100 tasks
+Use `ignoreNulls=True` when needed:
 
----
-
-## 2️⃣4️⃣ On Heap Memory
-
-Memory managed by JVM.
-Used for:
-
-* Execution
-* Storage
-* User objects
-
-⚠️ Subject to JVM GC overhead
-
----
-
-## 2️⃣5️⃣ Execution Memory
-
-Used for:
-
-* Shuffles
-* Joins
-* Aggregations
-* Sorts
-
-Dynamic & released after task completion.
-
----
-
-## 2️⃣6️⃣ Storage Memory
-
-Used for:
-
-* Cached DataFrames/RDDs
-* Broadcast variables
-
-Can spill to disk if insufficient.
-
----
-
-## 2️⃣7️⃣ User Memory
-
-Used for:
-
-* User-defined data structures
-* Python objects
-* UDFs
-
-Spark doesn’t manage it directly.
-
----
-
-## 2️⃣8️⃣ Reserved Memory
-
-Memory reserved by Spark internally.
-
-* For system stability
-* Not available for user tasks
-
-Prevents OOM errors.
-
----
-
-## 2️⃣9️⃣ Off Heap Memory
-
-Memory outside JVM heap.
-
-* Uses native memory
-* Avoids GC pressure
-* Enabled via `spark.memory.offHeap.enabled`
-
-Used heavily with **Tungsten engine**.
-
----
-
-## 3️⃣0️⃣ Overhead Memory
-
-Extra memory for:
-
-* JVM overhead
-* Native libraries
-* Python processes
-
-Configured as:
-
-```text
-spark.executor.memoryOverhead
+```python
+last("salary", ignorenulls=True).over(window_spec)
 ```
 
 ---
 
-## 🧠 Final Mental Model (Interview Gold)
+## 3) Rows vs Range Frames (Very Important)
 
-> **Code → Logical Plan → Catalyst → Physical Plan → DAG → Jobs → Stages → Tasks → Executors → Memory**
+### Rows-based frame
+
+```python
+Window.orderBy("date").rowsBetween(-2, 0)
+```
+
+* Counts **physical rows**
+* Deterministic with strict ordering
+
+### Range-based frame
+
+```python
+Window.orderBy("date").rangeBetween(-7, 0)
+```
+
+* Uses **value ranges**
+* Multiple rows can share the same order key
+
+> For time series with duplicate timestamps, **rowsBetween** is safer.
 
 ---
 
-If you want next:
+## 4) Practical Data Engineering Examples
 
-* 🔥 **Real-world performance tuning examples**
-* 🔥 **Diagram-based explanation for interviews**
-* 🔥 **Tricky interview questions from these concepts**
+### Latest Record per Key (De-duplication)
 
-Just tell me 👍
+```python
+w = Window.partitionBy("user_id").orderBy(col("updated_at").desc())
+
+df.filter(row_number().over(w) == 1)
+```
+
+### Top-N per Group
+
+```python
+w = Window.partitionBy("category").orderBy(col("revenue").desc())
+
+df.withColumn("r", dense_rank().over(w)) \
+  .filter("r <= 3")
+```
+
+### Running Metrics (Finance / Logs)
+
+```python
+w = Window.partitionBy("account").orderBy("date") \
+          .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+
+df.withColumn("balance", sum("amount").over(w))
+```
+
+---
+
+## 5) Performance Notes (Critical for Interviews)
+
+* Window functions **cause shuffles** if `partitionBy` changes data distribution
+* Prefer **low-cardinality partitions**
+* Avoid very wide frames on huge datasets
+* Cache if the same window spec is reused
+* Window ≠ groupBy: window keeps **N rows**, groupBy reduces to **K rows**
+
+---
+
+## Quick Mental Model
+
+| Aspect         | groupBy | Window |
+| -------------- | ------- | ------ |
+| Rows preserved | ❌       | ✅      |
+| Aggregation    | ✅       | ✅      |
+| Ranking / Lag  | ❌       | ✅      |
+| Shuffle        | Yes     | Yes    |
+
+---
+
+If you want, I can next:
+
+* Deep-dive into **window execution internals (DAG + shuffle)**
+* Compare **SQL window functions vs PySpark**
+* Give **interview-grade window function questions**
+* Optimize a **real dataset window query** you’re working on
