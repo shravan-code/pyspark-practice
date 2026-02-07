@@ -12,4 +12,4 @@ The Driver manages the Spark application, while the Cluster Manager manages the 
 
 Executor count can be configured statically or dynamically. If a worker or executor fails, the cluster manager detects the failure and the Driver re-executes the failed tasks on available executors using lineage-based fault tolerance.
 
-![img.png](images/pyspark.webp)
+![img.png](../data/images/pyspark.webp)
